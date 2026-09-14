@@ -59,19 +59,22 @@ jobs:
           pnpm run release
           sleep 1s
 
-      # The scaffold creates the release without a description; point it at the
-      # changelog section written for this version.
+      # The scaffold creates the release without a description. The notes come
+      # from CHANGELOG.md; the script falls back to the Unreleased section, so a
+      # version without its own entry still gets something better than a bare
+      # contributor list. POSIX sed only — an earlier awk version silently
+      # matched nothing.
       - name: Describe the release
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          V="${GITHUB_REF_NAME#v}"
-          awk -v v="$V" 'index($0, "## [" v "]") == 1 {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          chmod +x tools/changelog-notes.sh
+          tools/changelog-notes.sh "${GITHUB_REF_NAME#v}" > notes.md
           if [ -s notes.md ]; then
             gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
           else
-            echo "no CHANGELOG section for $V, leaving the release as created"
+            echo "no changelog content for $GITHUB_REF_NAME, leaving the release as created"
           fi
 
       - name: Notify release

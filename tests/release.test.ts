@@ -9,6 +9,7 @@
  * stop receiving updates.
  */
 import { equal, ok } from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -123,12 +124,57 @@ describe("release and auto-update", () => {
       workflow.includes("gh release edit") && workflow.includes("notes-file"),
       "the release body should come from CHANGELOG.md",
     );
-    // The section it looks for has to exist for the version being released.
-    const changelog = read("CHANGELOG.md");
+    // An inline awk variant of this silently matched nothing on the first
+    // release, so the body came out as a bare contributor list. The extraction
+    // itself is exercised by the next test.
     ok(
-      changelog.includes(`## [${pkg.version}]`) ||
-        changelog.includes(`## [Unreleased]`),
-      `CHANGELOG.md needs a section for ${pkg.version}`,
+      workflow.includes("tools/changelog-notes.sh"),
+      "the notes come from the tested helper, not an inline one-liner",
+    );
+  });
+
+  it("extracts release notes for a version, and falls back to Unreleased", () => {
+    const script = join(root, "tools", "changelog-notes.sh");
+    ok(existsSync(script), "tools/changelog-notes.sh must exist");
+
+    // The script is POSIX shell; a bash is needed to run it. Git for Windows
+    // ships one, and CI is Linux.
+    const candidates = [
+      "bash",
+      "C:/Program Files/Git/bin/bash.exe",
+      "C:/Program Files (x86)/Git/bin/bash.exe",
+    ];
+    let bash: string | undefined;
+    for (const candidate of candidates) {
+      try {
+        execFileSync(candidate, ["--version"], { stdio: "ignore" });
+        bash = candidate;
+        break;
+      } catch {
+        // try the next one
+      }
+    }
+    if (!bash) {
+      ok(true, "no bash available, skipping the extraction check");
+      return;
+    }
+
+    const run = (version: string) =>
+      execFileSync(bash as string, [script, version], {
+        cwd: root,
+        encoding: "utf8",
+      }).trim();
+
+    const release = run(pkg.version);
+    ok(release.length > 0, `no notes extracted for ${pkg.version}`);
+    ok(/^### /m.test(release), "the section body should keep its sub-headings");
+
+    // A version without its own entry still gets notes.
+    const fallback = run("9.9.9-not-a-version");
+    ok(fallback.length > 0, "the Unreleased fallback produced nothing");
+    ok(
+      !fallback.includes("9.9.9"),
+      "the fallback must not leak the requested version",
     );
   });
 

@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The release workflow can be re-run: it drops the release left by an earlier run
+  before creating a new one.
+- Release notes now come from this file (`tools/changelog-notes.sh`) instead of
+  only listing contributors.
+- `tests/release.test.ts` reads the release contract from the tracked sources
+  instead of `build/`, which does not exist yet when CI runs the tests.
+
 ## [1.0.0] - 2026-09-14
 
 First release of the rewritten plugin. The previous `zotero-ccf-info` released
