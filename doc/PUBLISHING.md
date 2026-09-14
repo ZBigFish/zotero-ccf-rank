@@ -1,117 +1,96 @@
 # Publishing checklist
 
-Everything in the repository is ready. What is left needs your GitHub account,
-because it cannot be done from this machine (`gh` is not installed and there is
-no stored GitHub credential).
+Current state, verified on 2026-09-14:
 
-## 1. Create the repository and push
+| Thing                | Status                                                                       |
+| -------------------- | ---------------------------------------------------------------------------- |
+| Repository           | <https://github.com/ZBigFish/zotero-ccf-rank> (public, squashed root commit) |
+| Release              | `v1.0.0`, XPI attached, marked _Latest_                                      |
+| Auto-update manifest | published under the fixed `release` tag                                      |
+| Actions              | `GITHUB_TOKEN` with _Read and write_ (`default_workflow_permissions: write`) |
+| Store entry          | PR <https://github.com/syt2/zotero-addons-scraper/pull/235>                  |
 
-The clone still points at the **old** plugin repository
-(`TimeTrapzz/zotero-ccf-info.git`). This is a different plugin, so give it its
-own repository — the name already matches what `package.json` and the update URL
-expect:
-
-<https://github.com/ZBigFish/zotero-ccf-rank>
-
-```bash
-# a new remote for the new project; the old `origin` is left untouched
-git remote add ccfrank https://github.com/ZBigFish/zotero-ccf-rank.git
-git push ccfrank main
-```
-
-> Do **not** push this to `zotero-ccf-info`: that repository belongs to the
-> previous plugin, has its own release/tag history and its own users.
-
-## 2. Turn on the pieces the plugin needs
-
-In the new repository:
-
-1. **Settings → Actions → General → Workflow permissions**: select
-   _Read and write permissions_. The release job uploads assets, and the default
-   read-only token would fail with a permission error.
-2. Nothing else. `GITHUB_TOKEN` is provided by Actions; no repository secret is
-   needed. (The previous workflow read `secrets.GitHub_TOKEN`, which does not
-   exist — that is fixed and covered by `tests/release.test.ts`.)
-
-## 3. Tag the first release
+## Releasing a new version
 
 ```bash
-git tag v1.0.0
-git push ccfrank v1.0.0
+git tag v1.0.1 && git push ccfrank v1.0.1
 ```
 
-Pushing the tag starts `.github/workflows/release.yml`, which:
+That is the whole procedure. `pnpm version patch` also works (it bumps
+`package.json` and tags in one step — then `git push --follow-tags`).
 
-1. installs dependencies,
-2. runs `pnpm test` (164 tests),
-3. builds `build/zotero-ccf-rank.xpi`,
-4. publishes a GitHub release for `v1.0.0` with the XPI attached,
-5. refreshes the fixed `release` tag, which carries `update.json` and
-   `update-beta.json`.
+Pushing a `v*` tag starts `.github/workflows/release.yml`, which runs the tests,
+builds the XPI, clears the releases and tags left by an earlier run, publishes
+`v<version>`, re-points the tag, and rewrites the release body from
+`CHANGELOG.md`.
 
-That last step is what makes Zotero auto-update work, so **check it after the
-first run**:
+Add a `## [1.0.1]` section to `CHANGELOG.md` **before** tagging, or the notes fall
+back to the `Unreleased` section.
+
+### Why the workflow clears the tags first
+
+`zotero-plugin release` creates both tags and fails with `422 already_exists` if a
+release for the tag is already there. It manages two tags, and both have to be
+cleared for a re-run to work:
+
+- `v<version>` — carries the XPI,
+- `release` — carries `update.json`, the **fixed** URL baked into the plugin.
+
+Forgetting the second one leaves that manifest on an older commit, and then its
+`update_hash` describes a different XPI than the one published: Zotero refuses the
+update, silently. All three failure modes are pinned down by
+`tests/release.test.ts`.
+
+## Verify after every release
 
 ```bash
-curl -sL https://github.com/ZBigFish/zotero-ccf-rank/releases/download/release/update.json
+bash tools/verify-release.sh ZBigFish/zotero-ccf-rank
 ```
 
-It must contain `"version": "1.0.0"` and an `update_link` pointing at the
-`v1.0.0` asset. If the `release` tag is missing, the release job did not finish —
-read its log.
+It walks the chain exactly as Zotero does — fixed manifest URL → `update.json` →
+`update_link` → XPI → `update_hash` — and fails loudly on a mismatch.
 
-## 4. Verify the update path once
+> The scaffold writes the hash as **hex** (`sha512:<hex>`), while Mozilla's update
+> schema examples show base64. Comparing against base64 makes a correct release
+> look broken; that mistake cost an hour once. The script and this note exist
+> because of it.
 
-This is the only part of the release that has not been observed end to end,
-because it needs a published release:
+## Network: GitHub needs the local proxy
+
+Direct connections to `github.com:443` time out on this machine; a proxy runs on
+`127.0.0.1:7897` and GitHub works through it. Git is configured for it globally:
+
+```bash
+git config --global http.proxy http://127.0.0.1:7897   # already set
+export HTTPS_PROXY=http://127.0.0.1:7897               # for gh and curl
+```
+
+The proxy has to be running for `git push`, `gh` and `tools/verify-release.sh`.
+
+## One thing still to confirm by hand
+
+The update path is verified as far as it can be without a second release: the
+manifest resolves at the fixed URL and its hash matches the published XPI.
+
+What is **not** yet observed is Zotero actually performing an update, which needs
+a newer version to exist. To confirm it once:
 
 1. install `v1.0.0` from the release page,
-2. bump something small and publish `v1.0.1` (`pnpm version patch` then
-   `git push ccfrank main --follow-tags`),
+2. tag and push `v1.0.1`,
 3. in Zotero: **Tools → Add-ons → ⚙ → Check for Updates**.
 
-If the update shows up, auto-update works from then on. If not, the two things
-to check are the `release` tag (step 3) and that the URL in the installed
-`manifest.json` matches it.
+If the update appears, auto-update works for every future release.
 
-## 5. Getting listed where users actually look
+## Store listings
 
-Nothing below can be submitted from this machine. Two destinations matter, and
-their current state is worth checking before you spend time on a form:
+| Destination                                                         | State                                                                                                                                              |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `syt2/zotero-addons-scraper` (feeds the Zotero Addons plugin store) | **PR opened**: [#235](https://github.com/syt2/zotero-addons-scraper/pull/235). Entries are one file `addons/{owner}@{repo}` holding optional tags. |
+| `Zotero-Chinese/zotero-plugins`                                     | **Cannot be used**: its README states it no longer accepts plugin submissions and redirects to the scraper above.                                  |
 
-| Destination                     | Repository                                         | Notes                                                                                                                                                                              |
-| ------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Zotero 中文社区插件合集         | <https://github.com/Zotero-Chinese/zotero-plugins> | The project README currently marks it **暂缓更新 / maintenance suspended**, so a new entry may sit unreviewed. Worth a look before investing effort.                               |
-| Zotero Add-on Market (插件商店) | <https://github.com/syt2/zotero-addons>            | The market reads a generated catalog; the crawler behind it is <https://github.com/syt2/zotero-addons-scraper>. Check that repository for the current way a plugin gets picked up. |
+The predecessor plugin is already listed in the scraper as
+`TimeTrapzz@zotero-ccf-info`, so it keeps its own entry.
 
-I could not load either repository from this machine (GitHub fetches failed
-here), so **verify the current submission process there instead of trusting the
-table above**.
-
-### A listing entry you can paste
-
-Most catalogs of this kind take roughly this shape — adapt the field names to
-whatever the destination asks for:
-
-```json
-{
-  "name": "Zotero CCF Rank",
-  "nameZh": "Zotero CCF 分区助手",
-  "repo": "ZBigFish/zotero-ccf-rank",
-  "release": "https://github.com/ZBigFish/zotero-ccf-rank/releases/latest/download/zotero-ccf-rank.xpi",
-  "description": "Identify the CCF rank and the 中科院分区 of a paper, and show a one-line summary in a column.",
-  "descriptionZh": "自动识别论文的 CCF 分区与中科院分区，在列表里显示一行汇总；Nature/Science/Cell 及其大子刊有独立的 CNS 顶刊属性。",
-  "tags": ["ccf", "中科院分区", "分区", "期刊", "计算机"],
-  "author": "TimeTrapzz",
-  "homepage": "https://github.com/ZBigFish/zotero-ccf-rank",
-  "license": "AGPL-3.0-or-later",
-  "minZotero": "7.0"
-}
-```
-
-### If no submission channel is open
-
-A plugin商店 entry is usually how Chinese users find a plugin, but the fallback
-that works today is a short post with a screenshot of the column and the direct
-release link — 知乎, Bilibili, 小红书 and the Zotero 中文社区 forum all reach the
-same audience, and every one of them accepts a self-post with no gatekeeper.
+If the PR is not merged, the fallback is a short post with a screenshot and the
+release link (知乎 / B站 / 小红书 / Zotero 中文社区论坛) — no gatekeeper, same
+audience.
