@@ -10,7 +10,8 @@
  */
 import { equal, ok } from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
@@ -177,22 +178,62 @@ describe("release and auto-update", () => {
       return;
     }
 
-    const run = (version: string) =>
-      execFileSync(bash as string, [script, version], {
-        cwd: root,
-        encoding: "utf8",
-      }).trim();
+    // A fixture, not the real changelog: the fallback only produces something
+    // when Unreleased has content, and whether it does depends on where the
+    // project is in its release cycle. Asserting against the live file made this
+    // test fail the moment 1.0.1 moved that content into a section of its own.
+    const fixture = join(tmpdir(), `changelog-notes-${process.pid}.md`);
+    writeFileSync(
+      fixture,
+      [
+        "# Changelog",
+        "",
+        "## [Unreleased]",
+        "",
+        "### Fixed",
+        "",
+        "- an unreleased fix",
+        "",
+        "## [1.0.0] - 2026-01-01",
+        "",
+        "### Added",
+        "",
+        "- the first release",
+        "",
+        "## [0.9.0] - 2025-12-01",
+        "",
+        "- older",
+        "",
+      ].join("\n"),
+    );
 
-    const release = run(pkg.version);
-    ok(release.length > 0, `no notes extracted for ${pkg.version}`);
-    ok(/^### /m.test(release), "the section body should keep its sub-headings");
+    try {
+      const run = (version: string) =>
+        execFileSync(bash as string, [script, version, fixture], {
+          cwd: root,
+          encoding: "utf8",
+        }).trim();
 
-    // A version without its own entry still gets notes.
-    const fallback = run("9.9.9-not-a-version");
-    ok(fallback.length > 0, "the Unreleased fallback produced nothing");
+      const exact = run("1.0.0");
+      ok(exact.includes("the first release"), exact);
+      ok(!exact.includes("older"), "the next section must not leak in");
+      ok(!exact.includes("an unreleased fix"), exact);
+      ok(/^### /m.test(exact), "the body keeps its sub-headings");
+
+      // A version without its own entry falls back to Unreleased.
+      equal(run("9.9.9-not-a-version"), "### Fixed\n\n- an unreleased fix");
+    } finally {
+      rmSync(fixture, { force: true });
+    }
+  });
+
+  it("only rewrites the release body when there are notes", () => {
+    // An empty extraction is legitimate — a version with no changelog entry and
+    // an empty Unreleased section — and must not wipe the release body.
+    const workflow = read(".github/workflows/release.yml");
     ok(
-      !fallback.includes("9.9.9"),
-      "the fallback must not leak the requested version",
+      /if \[ -s notes\.md \]/.test(workflow),
+      "the edit is guarded by a non-empty-notes check",
     );
   });
 
