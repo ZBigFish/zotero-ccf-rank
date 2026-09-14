@@ -1,0 +1,540 @@
+<vbox
+  id="ccfrank-prefpane-root"
+  onload="Zotero.CCFRank.hooks.onPrefsEvent('load', { window })"
+  onunload="Zotero.CCFRank.hooks.onPrefsEvent('unload', { window })"
+>
+  <linkset>
+    <html:link rel="localization" href="ccfrank-addon.ftl" />
+  </linkset>
+
+  <vbox class="main-section">
+    <html:div id="ccfrank-pref-status" class="ccfrank-pref-status">
+      <html:div id="ccfrank-cache-status" class="ccfrank-pref-hint" />
+    </html:div>
+
+    <groupbox>
+      <label><html:h2 data-l10n-id="pref-basic-title" /></label>
+      <vbox>
+        <!--
+          Native HTML checkboxes on purpose. Zotero's own panes use XUL
+          `<checkbox native="true">`, but those only look right while Zotero's
+          XUL checkbox XBL is active for the element; in a plugin pane the box
+          itself can end up invisible (seen in the wild as "the pane has no
+          checkboxes at all", while the labels still show). The pane controller
+          binds these to their preferences.
+        -->
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-enable"
+            type="checkbox"
+            data-pref="enable"
+          />
+          <html:span data-l10n-id="pref-enable" />
+        </html:label>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-auto-new"
+            type="checkbox"
+            data-pref="autoIdentifyNewItems"
+          />
+          <html:span data-l10n-id="pref-auto-new" />
+        </html:label>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-skip-identified"
+            type="checkbox"
+            data-pref="skipAlreadyIdentified"
+          />
+          <html:span data-l10n-id="pref-skip-identified" />
+        </html:label>
+        <hbox align="center">
+          <label
+            data-l10n-id="pref-new-delay"
+            control="ccfrank-pref-new-delay"
+          />
+          <html:input
+            id="ccfrank-pref-new-delay"
+            type="number"
+            min="0"
+            max="60000"
+            step="500"
+            style="width: 7em"
+            preference="extensions.zotero.ccfrank.newItemDelay"
+          />
+          <label data-l10n-id="pref-new-delay-unit" />
+        </hbox>
+        <hbox align="center" class="ccfrank-pref-buttons">
+          <button
+            id="ccfrank-button-scan"
+            data-l10n-id="pref-button-scan"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-scan-force"
+            data-l10n-id="pref-button-scan-force"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-update-selected"
+            data-l10n-id="pref-button-update-selected"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-cancel"
+            data-l10n-id="pref-button-cancel"
+            native="true"
+            hidden="true"
+          />
+        </hbox>
+        <label id="ccfrank-scan-status" class="ccfrank-pref-hint" />
+        <!--
+          Progress of the running job. The fill width is set from JavaScript
+          (`width: N%`), so it needs no XUL-specific machinery.
+        -->
+        <hbox id="ccfrank-progress" class="ccfrank-progress" hidden="true">
+          <html:div class="ccfrank-progress-track">
+            <html:div
+              id="ccfrank-progress-fill"
+              class="ccfrank-progress-fill"
+              style="width: 0%"
+            />
+          </html:div>
+          <label id="ccfrank-progress-text" class="ccfrank-progress-text" />
+        </hbox>
+        <!--
+          Localized once each; the controller copies the text into the line
+          above, because the pane's `l10n` object cannot resolve plugin messages
+          that were added after it was created.
+        -->
+        <label
+          id="ccfrank-progress-label-scan"
+          data-l10n-id="progress-scan"
+          hidden="true"
+        />
+        <label
+          id="ccfrank-progress-label-identify"
+          data-l10n-id="progress-identify"
+          hidden="true"
+        />
+        <label
+          id="ccfrank-progress-label-cas"
+          data-l10n-id="progress-cas"
+          hidden="true"
+        />
+        <label
+          id="ccfrank-progress-label-done"
+          data-l10n-id="progress-done"
+          hidden="true"
+        />
+      </vbox>
+    </groupbox>
+
+    <groupbox>
+      <label><html:h2 data-l10n-id="pref-format-title" /></label>
+      <vbox>
+        <hbox align="center">
+          <label data-l10n-id="pref-template" control="ccfrank-pref-template" />
+          <html:input
+            id="ccfrank-pref-template"
+            type="text"
+            flex="1"
+            style="min-width: 18em"
+            preference="extensions.zotero.ccfrank.summaryTemplate"
+          />
+        </hbox>
+        <label data-l10n-id="pref-template-hint" class="ccfrank-pref-hint" />
+        <label id="ccfrank-template-preview" class="ccfrank-pref-preview" />
+        <!--
+          The placeholder reference is spelled out here rather than generated in
+          JavaScript: Zotero's Fluent pass translates `data-l10n-id` in the pane
+          fragment, which is exactly what a dynamically built table would miss.
+          The pane controller only adds the click-to-insert behaviour.
+        -->
+        <label data-l10n-id="pref-template-legend" class="ccfrank-pref-hint" />
+        <!-- Localized once here; the controller copies it onto every row. -->
+        <label
+          id="ccfrank-placeholder-hint"
+          data-l10n-id="tmpl-insert-hint"
+          hidden="true"
+        />
+        <vbox id="ccfrank-placeholder-table" class="ccfrank-pref-placeholders">
+          <html:div class="ccfrank-placeholder-row" data-token="{ccf}">
+            <html:span class="ccfrank-placeholder-token">{ccf}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-ccf"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ CCF-A</html:span>
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{cas}">
+            <html:span class="ccfrank-placeholder-token">{cas}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-cas"
+            />
+            <html:span class="ccfrank-placeholder-sample"
+              >→ 中科院1区</html:span
+            >
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{top}">
+            <html:span class="ccfrank-placeholder-token">{top}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-top"
+            />
+            <html:span class="ccfrank-placeholder-sample"
+              >→ Nature子刊 NC</html:span
+            >
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{venue}">
+            <html:span class="ccfrank-placeholder-token">{venue}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-venue"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ TPAMI</html:span>
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{venueAbbr}">
+            <html:span class="ccfrank-placeholder-token">{venueAbbr}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-venue-abbr"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ TPAMI</html:span>
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{ccfAbbr}">
+            <html:span class="ccfrank-placeholder-token">{ccfAbbr}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-ccf-abbr"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ A</html:span>
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{casAbbr}">
+            <html:span class="ccfrank-placeholder-token">{casAbbr}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-cas-abbr"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ 1区</html:span>
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{type}">
+            <html:span class="ccfrank-placeholder-token">{type}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-type"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ journal</html:span>
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{typeLabel}">
+            <html:span class="ccfrank-placeholder-token">{typeLabel}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-type-label"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ 期刊</html:span>
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{year}">
+            <html:span class="ccfrank-placeholder-token">{year}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-year"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ 2024</html:span>
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{updated}">
+            <html:span class="ccfrank-placeholder-token">{updated}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-updated"
+            />
+            <html:span class="ccfrank-placeholder-sample"
+              >→ 2026-09-12</html:span
+            >
+          </html:div>
+          <html:div class="ccfrank-placeholder-row" data-token="{citation}">
+            <html:span class="ccfrank-placeholder-token">{citation}</html:span>
+            <html:span
+              class="ccfrank-placeholder-text"
+              data-l10n-id="tmpl-citation"
+            />
+            <html:span class="ccfrank-placeholder-sample">→ 128</html:span>
+          </html:div>
+        </vbox>
+        <hbox align="center">
+          <label
+            data-l10n-id="pref-separator"
+            control="ccfrank-pref-separator"
+          />
+          <html:input
+            id="ccfrank-pref-separator"
+            type="text"
+            style="width: 4em"
+            preference="extensions.zotero.ccfrank.separator"
+          />
+          <html:label class="ccfrank-check">
+            <html:input
+              id="ccfrank-pref-ccf-prefix"
+              type="checkbox"
+              data-pref="ccfPrefix"
+            />
+            <html:span data-l10n-id="pref-ccf-prefix" />
+          </html:label>
+        </hbox>
+        <hbox align="center">
+          <label data-l10n-id="pref-no-ccf" control="ccfrank-pref-no-ccf" />
+          <html:input
+            id="ccfrank-pref-no-ccf"
+            type="text"
+            style="width: 8em"
+            preference="extensions.zotero.ccfrank.placeholderNoCcf"
+          />
+          <label data-l10n-id="pref-preprint" control="ccfrank-pref-preprint" />
+          <html:input
+            id="ccfrank-pref-preprint"
+            type="text"
+            style="width: 8em"
+            preference="extensions.zotero.ccfrank.placeholderPreprint"
+          />
+          <label data-l10n-id="pref-no-cas" control="ccfrank-pref-no-cas" />
+          <html:input
+            id="ccfrank-pref-no-cas"
+            type="text"
+            style="width: 8em"
+            preference="extensions.zotero.ccfrank.placeholderNoCas"
+          />
+        </hbox>
+      </vbox>
+    </groupbox>
+
+    <groupbox>
+      <label><html:h2 data-l10n-id="pref-columns-title" /></label>
+      <vbox>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-show-summary"
+            type="checkbox"
+            data-pref="showSummaryColumn"
+          />
+          <html:span data-l10n-id="pref-show-summary" />
+        </html:label>
+        <hbox align="center">
+          <label
+            data-l10n-id="pref-summary-label"
+            control="ccfrank-pref-summary-label"
+          />
+          <html:input
+            id="ccfrank-pref-summary-label"
+            type="text"
+            style="width: 10em"
+            preference="extensions.zotero.ccfrank.summaryColumnLabel"
+          />
+        </hbox>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-show-ccf"
+            type="checkbox"
+            data-pref="showCcfColumn"
+          />
+          <html:span data-l10n-id="pref-show-ccf" />
+        </html:label>
+        <hbox align="center">
+          <label
+            data-l10n-id="pref-ccf-label"
+            control="ccfrank-pref-ccf-label"
+          />
+          <html:input
+            id="ccfrank-pref-ccf-label"
+            type="text"
+            style="width: 10em"
+            preference="extensions.zotero.ccfrank.ccfColumnLabel"
+          />
+        </hbox>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-show-cas"
+            type="checkbox"
+            data-pref="showCasColumn"
+          />
+          <html:span data-l10n-id="pref-show-cas" />
+        </html:label>
+        <hbox align="center">
+          <label
+            data-l10n-id="pref-cas-label"
+            control="ccfrank-pref-cas-label"
+          />
+          <html:input
+            id="ccfrank-pref-cas-label"
+            type="text"
+            style="width: 10em"
+            preference="extensions.zotero.ccfrank.casColumnLabel"
+          />
+        </hbox>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-show-citation"
+            type="checkbox"
+            data-pref="showCitationColumn"
+          />
+          <html:span data-l10n-id="pref-show-citation" />
+        </html:label>
+        <hbox align="center">
+          <label
+            data-l10n-id="pref-citation-label"
+            control="ccfrank-pref-citation-label"
+          />
+          <html:input
+            id="ccfrank-pref-citation-label"
+            type="text"
+            style="width: 10em"
+            preference="extensions.zotero.ccfrank.citationColumnLabel"
+          />
+        </hbox>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-show-item-pane"
+            type="checkbox"
+            data-pref="showItemPaneRow"
+          />
+          <html:span data-l10n-id="pref-show-item-pane" />
+        </html:label>
+      </vbox>
+    </groupbox>
+
+    <groupbox>
+      <label><html:h2 data-l10n-id="pref-sources-title" /></label>
+      <vbox>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-dblp"
+            type="checkbox"
+            data-pref="dblpEnabled"
+          />
+          <html:span data-l10n-id="pref-dblp" />
+        </html:label>
+        <hbox align="center">
+          <label
+            data-l10n-id="pref-dblp-endpoint"
+            control="ccfrank-pref-dblp-endpoint"
+          />
+          <html:input
+            id="ccfrank-pref-dblp-endpoint"
+            type="text"
+            flex="1"
+            style="min-width: 18em"
+            preference="extensions.zotero.ccfrank.dblpEndpoint"
+          />
+        </hbox>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-cas"
+            type="checkbox"
+            data-pref="casEnabled"
+          />
+          <html:span data-l10n-id="pref-cas" />
+        </html:label>
+
+        <hbox align="center">
+          <label data-l10n-id="pref-cas-ttl" control="ccfrank-pref-cas-ttl" />
+          <html:input
+            id="ccfrank-pref-cas-ttl"
+            type="number"
+            min="0"
+            max="3650"
+            step="1"
+            style="width: 6em"
+            preference="extensions.zotero.ccfrank.casCacheTtlDays"
+          />
+          <label data-l10n-id="pref-cas-ttl-unit" />
+        </hbox>
+        <hbox align="center">
+          <label
+            data-l10n-id="pref-cas-interval"
+            control="ccfrank-pref-cas-interval"
+          />
+          <html:input
+            id="ccfrank-pref-cas-interval"
+            type="number"
+            min="0"
+            max="60000"
+            step="100"
+            style="width: 7em"
+            preference="extensions.zotero.ccfrank.casRequestInterval"
+          />
+          <label data-l10n-id="pref-cas-interval-unit" />
+        </hbox>
+        <hbox align="center" class="ccfrank-pref-buttons">
+          <button
+            id="ccfrank-button-cas-refresh"
+            data-l10n-id="pref-button-cas-refresh"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-cas-rebuild"
+            data-l10n-id="pref-button-cas-rebuild"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-cas-warm"
+            data-l10n-id="pref-button-cas-warm"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-cas-import"
+            data-l10n-id="pref-button-cas-import"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-cas-export"
+            data-l10n-id="pref-button-cas-export"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-cas-clear"
+            data-l10n-id="pref-button-cas-clear"
+            native="true"
+          />
+        </hbox>
+        <label id="ccfrank-cas-status" class="ccfrank-pref-hint" />
+      </vbox>
+    </groupbox>
+
+    <groupbox>
+      <label><html:h2 data-l10n-id="pref-alias-title" /></label>
+      <vbox>
+        <label data-l10n-id="pref-alias-hint" class="ccfrank-pref-hint" />
+        <vbox id="ccfrank-alias-list" class="ccfrank-pref-alias-list" />
+        <hbox align="center" class="ccfrank-pref-buttons">
+          <button
+            id="ccfrank-button-alias-add"
+            data-l10n-id="pref-alias-add"
+            native="true"
+          />
+          <button
+            id="ccfrank-button-alias-save"
+            data-l10n-id="pref-alias-save"
+            native="true"
+          />
+        </hbox>
+      </vbox>
+    </groupbox>
+
+    <groupbox>
+      <label><html:h2 data-l10n-id="pref-extra-title" /></label>
+      <vbox>
+        <html:label class="ccfrank-check">
+          <html:input
+            id="ccfrank-pref-delete-notes"
+            type="checkbox"
+            data-pref="deleteLegacyNoteAfterMigration"
+          />
+          <html:span data-l10n-id="pref-delete-notes" />
+        </html:label>
+      </vbox>
+    </groupbox>
+
+    <vbox>
+      <html:div id="ccfrank-pref-about" class="ccfrank-pref-about" />
+    </vbox>
+  </vbox>
+</vbox>

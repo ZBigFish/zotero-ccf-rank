@@ -1,0 +1,61 @@
+{
+  "name": "zotero-ccf-rank",
+  "version": "1.0.0",
+  "description": "Zotero plugin for computer science papers: identifies the CCF rank and the CAS (中科院) journal zone, writes a one-line venue summary, and shows it in a dedicated column.",
+  "config": {
+    "addonName": "Zotero CCF Rank",
+    "addonID": "ccfrank@timetrapzz.site",
+    "addonRef": "ccfrank",
+    "addonInstance": "CCFRank",
+    "prefsPrefix": "extensions.zotero.ccfrank"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZBigFish/zotero-ccf-rank.git"
+  },
+  "author": "ZBigFish",
+  "bugs": {
+    "url": "https://github.com/ZBigFish/zotero-ccf-rank/issues"
+  },
+  "homepage": "https://github.com/ZBigFish/zotero-ccf-rank#readme",
+  "license": "AGPL-3.0-or-later",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "start": "zotero-plugin serve",
+    "build": "tsc --noEmit && zotero-plugin build",
+    "lint": "prettier --write . && eslint . --fix",
+    "release": "zotero-plugin release",
+    "test": "node tools/build-prefs-pane.cjs --check && pwsh -NoProfile -File tools/check-pane.ps1 && node tools/clean.cjs build-test && tsc -p tsconfig.test.json && node --import ./tools/raw-loader.cjs --test build-test/tests/*.test.js",
+    "build:prefs-pane": "node tools/build-prefs-pane.cjs",
+    "build:ccf-data": "node tools/extract-ccf-data.cjs && node tools/generate-ccf-catalog.cjs",
+    "update-deps": "npm update --save"
+  },
+  "dependencies": {
+    "zotero-plugin-toolkit": "5.1.0-beta.13"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.10",
+    "eslint": "^9.39.2",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.1",
+    "zotero-plugin-scaffold": "^0.8.2",
+    "zotero-types": "4.1.0-beta.4"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "endOfLine": "lf",
+    "overrides": [
+      {
+        "files": [
+          "*.xhtml"
+        ],
+        "options": {
+          "htmlWhitespaceSensitivity": "css"
+        }
+      }
+    ]
+  }
+}
