@@ -214,14 +214,30 @@ describe("release and auto-update", () => {
           encoding: "utf8",
         }).trim();
 
-      const exact = run("1.0.0");
-      ok(exact.includes("the first release"), exact);
-      ok(!exact.includes("older"), "the next section must not leak in");
-      ok(!exact.includes("an unreleased fix"), exact);
-      ok(/^### /m.test(exact), "the body keeps its sub-headings");
+      // Whitespace-insensitive: BSD sed (Windows) and GNU sed (CI) disagree on
+      // how many blank lines survive, and that is not what this test is about.
+      const nonBlank = (text: string) =>
+        text
+          .split("\n")
+          .map((line) => line.trimEnd())
+          .filter((line) => line.length > 0);
+
+      const exact = nonBlank(run("1.0.0"));
+      ok(exact.join("|").includes("the first release"), exact.join("|"));
+      ok(!exact.join("|").includes("older"), "the next section must not leak");
+      ok(
+        !exact.join("|").includes("an unreleased fix"),
+        "the requested version's own section wins",
+      );
+      ok(/^### /m.test(exact.join("\n")), "the body keeps its sub-headings");
 
       // A version without its own entry falls back to Unreleased.
-      equal(run("9.9.9-not-a-version"), "### Fixed\n\n- an unreleased fix");
+      // Compared as non-blank lines: the script strips blanks, and BSD sed
+      // (Windows) and GNU sed (CI) differ in how many they leave behind.
+      equal(
+        nonBlank(run("9.9.9-not-a-version")).join("|"),
+        "### Fixed|- an unreleased fix",
+      );
     } finally {
       rmSync(fixture, { force: true });
     }
