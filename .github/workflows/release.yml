@@ -14,10 +14,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      # The token Actions provides. A repository secret named after the old
-      # plugin does not exist, and the release step fails before uploading.
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,10 +42,37 @@ jobs:
         run: |
           pnpm run build
 
+      # zotero-plugin release creates a release for the tag and fails when one
+      # already exists (422 already_exists), so a re-run of this workflow would
+      # fail after the first success. Removing the stale release makes the step
+      # idempotent; the tag is not touched.
+      - name: Drop a stale release for this tag
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "$GITHUB_REF_NAME" --yes --cleanup-tag || true
+
       - name: Release to GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pnpm run release
           sleep 1s
+
+      # The scaffold creates the release without a description; point it at the
+      # changelog section written for this version.
+      - name: Describe the release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk -v v="$V" 'index($0, "## [" v "]") == 1 {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          if [ -s notes.md ]; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            echo "no CHANGELOG section for $V, leaving the release as created"
+          fi
 
       - name: Notify release
         uses: apexskier/github-release-commenter@v1

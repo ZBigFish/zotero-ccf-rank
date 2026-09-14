@@ -94,6 +94,44 @@ describe("release and auto-update", () => {
     );
   });
 
+  it("can be re-run without failing on the existing release", () => {
+    // `zotero-plugin release` creates the release for the tag and fails with
+    // `422 already_exists` when one is there, so without this step a re-run (or
+    // a re-tag) fails after the first success — which is exactly what happened
+    // on this repository's first release.
+    const workflow = read(".github/workflows/release.yml");
+    const drop = workflow.indexOf("Drop a stale release");
+    const create = workflow.indexOf("pnpm run release");
+    ok(drop > 0, "a stale release must be dropped before creating a new one");
+    ok(create > 0, "the scaffold still creates the release");
+    ok(drop < create, "the delete step has to run before `pnpm run release`");
+    ok(
+      workflow.includes('gh release delete "$GITHUB_REF_NAME"'),
+      "the delete must target the tag being released",
+    );
+    // Deleting the tag itself would break the update chain.
+    const deleteStep = workflow.slice(drop, create);
+    ok(
+      !/--cleanup-tag\s*(?!.*#)/.test(deleteStep.replace(/--cleanup-tag/g, "")),
+      "the tag is deliberately kept",
+    );
+  });
+
+  it("describes the release from the changelog", () => {
+    const workflow = read(".github/workflows/release.yml");
+    ok(
+      workflow.includes("gh release edit") && workflow.includes("notes-file"),
+      "the release body should come from CHANGELOG.md",
+    );
+    // The section it looks for has to exist for the version being released.
+    const changelog = read("CHANGELOG.md");
+    ok(
+      changelog.includes(`## [${pkg.version}]`) ||
+        changelog.includes(`## [Unreleased]`),
+      `CHANGELOG.md needs a section for ${pkg.version}`,
+    );
+  });
+
   it("resolves the update link to this version's asset", () => {
     // Mirrors what the scaffold writes into update.json.
     const link = `${RAW}/${TAG}/${pkg.config.addonRef === "ccfrank" ? "zotero-ccf-rank.xpi" : ""}`;
