@@ -96,25 +96,36 @@ describe("release and auto-update", () => {
   });
 
   it("can be re-run without failing on the existing release", () => {
-    // `zotero-plugin release` creates the release for the tag and fails with
-    // `422 already_exists` when one is there, so without this step a re-run (or
-    // a re-tag) fails after the first success — which is exactly what happened
-    // on this repository's first release.
+    // `zotero-plugin release` creates the tag *and* the release, and fails with
+    // `422 already_exists` when a release for the tag is already there. Two
+    // attempts at this were wrong before it worked:
+    //   - without any delete step, every re-run failed after the first success;
+    //   - with the tag kept (`--cleanup-tag` missing), the scaffold then failed
+    //     with `Tag "v1.0.0" not found`.
     const workflow = read(".github/workflows/release.yml");
-    const drop = workflow.indexOf("Drop a stale release");
+    const drop = workflow.indexOf("Drop a stale release and tag");
     const create = workflow.indexOf("pnpm run release");
     ok(drop > 0, "a stale release must be dropped before creating a new one");
     ok(create > 0, "the scaffold still creates the release");
     ok(drop < create, "the delete step has to run before `pnpm run release`");
-    ok(
-      workflow.includes('gh release delete "$GITHUB_REF_NAME"'),
-      "the delete must target the tag being released",
-    );
-    // Deleting the tag itself would break the update chain.
+
     const deleteStep = workflow.slice(drop, create);
     ok(
-      !/--cleanup-tag\s*(?!.*#)/.test(deleteStep.replace(/--cleanup-tag/g, "")),
-      "the tag is deliberately kept",
+      deleteStep.includes('gh release delete "$GITHUB_REF_NAME"'),
+      "the delete must target the tag being released",
+    );
+    ok(
+      deleteStep.includes("--cleanup-tag"),
+      "the tag has to go too, or the scaffold refuses to recreate it",
+    );
+    ok(
+      deleteStep.includes("gh release view"),
+      "deleting a release that does not exist yet must not fail the job",
+    );
+    // The scaffold decides the tag target; make sure it ends up right.
+    ok(
+      workflow.includes("git/refs/tags/$GITHUB_REF_NAME"),
+      "the tag is re-pointed at the released commit afterwards",
     );
   });
 

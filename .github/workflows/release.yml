@@ -42,15 +42,20 @@ jobs:
         run: |
           pnpm run build
 
-      # zotero-plugin release creates a release for the tag and fails when one
-      # already exists (422 already_exists), so a re-run of this workflow would
-      # fail after the first success. Removing the stale release makes the step
-      # idempotent; the tag is not touched.
-      - name: Drop a stale release for this tag
-        continue-on-error: true
+      # `zotero-plugin release` creates the tag *and* the release, and fails with
+      # `422 already_exists` when a release for the tag is already there. So the
+      # stale pair is removed first with `--cleanup-tag`, and the scaffold
+      # recreates both. Without this, a re-run of a published release fails.
+      - name: Drop a stale release and tag
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release delete "$GITHUB_REF_NAME" --yes --cleanup-tag || true
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release delete "$GITHUB_REF_NAME" --yes --cleanup-tag
+            sleep 5
+          else
+            echo "no release for $GITHUB_REF_NAME yet"
+          fi
 
       - name: Release to GitHub
         env:
@@ -58,6 +63,17 @@ jobs:
         run: |
           pnpm run release
           sleep 1s
+
+      # The scaffold may have re-pointed the tag; make sure it names the commit
+      # that was actually released.
+      - name: Point the tag back at the released commit
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$(git rev-parse HEAD^{commit})"
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$GITHUB_REF_NAME" \
+            -f sha="$sha" -F force=true
 
       # The scaffold creates the release without a description. The notes come
       # from CHANGELOG.md; the script falls back to the Unreleased section, so a
