@@ -96,14 +96,17 @@ describe("release and auto-update", () => {
   });
 
   it("can be re-run without failing on the existing release", () => {
-    // `zotero-plugin release` creates the tag *and* the release, and fails with
-    // `422 already_exists` when a release for the tag is already there. Two
+    // `zotero-plugin release` creates the tags *and* the releases, and fails
+    // with `422 already_exists` when a release for a tag is already there. Three
     // attempts at this were wrong before it worked:
     //   - without any delete step, every re-run failed after the first success;
-    //   - with the tag kept (`--cleanup-tag` missing), the scaffold then failed
-    //     with `Tag "v1.0.0" not found`.
+    //   - with the tag kept (`--cleanup-tag` missing), the scaffold failed with
+    //     `Tag "v1.0.0" not found`;
+    //   - with only `v<version>` cleared, the fixed `release` tag stayed on an
+    //     older commit, so the manifest Zotero reads described a different XPI
+    //     than the one published and its update_hash no longer matched.
     const workflow = read(".github/workflows/release.yml");
-    const drop = workflow.indexOf("Drop a stale release and tag");
+    const drop = workflow.indexOf("Drop the stale releases and tags");
     const create = workflow.indexOf("pnpm run release");
     ok(drop > 0, "a stale release must be dropped before creating a new one");
     ok(create > 0, "the scaffold still creates the release");
@@ -111,8 +114,8 @@ describe("release and auto-update", () => {
 
     const deleteStep = workflow.slice(drop, create);
     ok(
-      deleteStep.includes('gh release delete "$GITHUB_REF_NAME"'),
-      "the delete must target the tag being released",
+      deleteStep.includes('for tag in "$GITHUB_REF_NAME" release'),
+      "both the version tag and the fixed `release` tag must be cleared",
     );
     ok(
       deleteStep.includes("--cleanup-tag"),
@@ -120,12 +123,16 @@ describe("release and auto-update", () => {
     );
     ok(
       deleteStep.includes("gh release view"),
-      "deleting a release that does not exist yet must not fail the job",
+      "clearing a tag that has no release yet must not fail the job",
+    );
+    ok(
+      deleteStep.includes("git/refs/tags/$tag"),
+      "the tag-only fallback needs the API, not `gh release delete`",
     );
     // The scaffold decides the tag target; make sure it ends up right.
     ok(
       workflow.includes("git/refs/tags/$GITHUB_REF_NAME"),
-      "the tag is re-pointed at the released commit afterwards",
+      "the version tag is re-pointed at the released commit afterwards",
     );
   });
 

@@ -42,20 +42,31 @@ jobs:
         run: |
           pnpm run build
 
-      # `zotero-plugin release` creates the tag *and* the release, and fails with
-      # `422 already_exists` when a release for the tag is already there. So the
-      # stale pair is removed first with `--cleanup-tag`, and the scaffold
-      # recreates both. Without this, a re-run of a published release fails.
-      - name: Drop a stale release and tag
+      # `zotero-plugin release` creates the tags *and* the releases, and fails
+      # with `422 already_exists` when a release for a tag is already there. Both
+      # tags it manages are therefore cleared first, so the scaffold recreates
+      # them at the commit being released:
+      #   - `v<version>`: carries the XPI,
+      #   - `release`:    carries update.json, the fixed URL baked into the plugin.
+      # Forgetting the second one leaves that manifest pointing at an older
+      # commit, where its update_hash describes a different XPI than the one
+      # published — and Zotero rejects an update whose hash does not match.
+      - name: Drop the stale releases and tags
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release delete "$GITHUB_REF_NAME" --yes --cleanup-tag
-            sleep 5
-          else
-            echo "no release for $GITHUB_REF_NAME yet"
-          fi
+          for tag in "$GITHUB_REF_NAME" release; do
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "removing the release and tag $tag"
+              gh release delete "$tag" --yes --cleanup-tag
+            elif gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+              echo "removing the tag $tag (no release)"
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag"
+            else
+              echo "nothing to remove for $tag"
+            fi
+          done
+          sleep 5
 
       - name: Release to GitHub
         env:
