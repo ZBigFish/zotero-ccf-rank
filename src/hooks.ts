@@ -9,8 +9,10 @@ import { getPref, observePrefs, unobservePrefs } from "./utils/prefs";
 import { IdentifyManager } from "./modules/manager";
 import {
   Columns,
+  cancelRepaint,
   refreshAll,
   refreshRow,
+  repaintAfterWindowLoad,
   summaryText,
 } from "./modules/columns";
 import { ItemPaneSection } from "./modules/itemPane";
@@ -107,6 +109,17 @@ async function startOnce() {
   prefsObserver = observePrefs((key) => {
     void onPrefChange(key, manager, columns, itemPane);
   });
+
+  // Repaint once the columns are in place.
+  //
+  // Zotero builds every cell of a row once into `itemTree._rowCache` and serves
+  // it from there; the tree repaint that `registerColumns()` triggers does *not*
+  // drop that cache. Any row rendered before this point therefore keeps an empty
+  // 分区汇总 cell until something clears it — which is why the column used to
+  // appear and stay blank on every start until the Tools → refresh entry was
+  // used. `addon.data.initialized` is set last, so this cannot be overtaken by a
+  // second start-up.
+  refreshAll();
 
   addon.data.initialized = true;
 }
@@ -209,10 +222,13 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
   } catch (error) {
     ztoolkit.log("could not attach the preference-pane listener", error);
   }
+  // The item tree is often already built by now, with our columns cached empty.
+  repaintAfterWindowLoad(win as unknown as Window);
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
-  void win;
+  // A repaint timer firing into a destroyed window throws inside Zotero.
+  cancelRepaint(win);
 }
 
 async function onNotify(

@@ -6,12 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-14
+
 ### Fixed
 
-- The release workflow can be re-run: it drops the release left by an earlier run
-  before creating a new one.
-- Release notes now come from this file (`tools/changelog-notes.sh`) instead of
-  only listing contributors.
+- The 分区汇总 column no longer starts out blank. Zotero caches every cell of a
+  row once and serves it from there, so rows rendered before the column was
+  registered kept an empty cell until it was cleared by hand. The plugin now
+  clears that cache when it finishes starting, and again shortly after each main
+  window appears.
+- The release workflow can be re-run: it drops the releases and tags left by an
+  earlier run before creating new ones. Leaving the fixed `release` tag behind
+  made the update manifest describe a different XPI than the published one, which
+  Zotero rejects silently.
+- Release notes come from this file (`tools/changelog-notes.sh`) instead of only
+  listing contributors.
 - `tests/release.test.ts` reads the release contract from the tracked sources
   instead of `build/`, which does not exist yet when CI runs the tests.
 
@@ -63,5 +72,6 @@ installed next to the old one and migrates its data on first use.
   really affects which columns exist.
 - Forced re-identification no longer wipes a correct rank with `无分区`.
 
-[Unreleased]: https://github.com/ZBigFish/zotero-ccf-rank/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/ZBigFish/zotero-ccf-rank/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/ZBigFish/zotero-ccf-rank/releases/tag/v1.0.1
 [1.0.0]: https://github.com/ZBigFish/zotero-ccf-rank/releases/tag/v1.0.0

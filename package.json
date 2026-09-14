@@ -1,6 +1,6 @@
 {
   "name": "zotero-ccf-rank",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Zotero plugin for computer science papers: identifies the CCF rank and the CAS (中科院) journal zone, writes a one-line venue summary, and shows it in a dedicated column.",
   "config": {
     "addonName": "Zotero CCF Rank",

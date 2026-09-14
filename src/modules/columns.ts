@@ -375,3 +375,53 @@ export function refreshAll(): void {
     // ignore
   }
 }
+
+/** Pending repaint timers, per window, so they can be cancelled on unload. */
+const repaintTimers = new WeakMap<Window, number[]>();
+
+/**
+ * Drop the row cache a few times shortly after a main window appears.
+ *
+ * The one-shot `refreshAll()` at the end of `onStartup` covers the usual order,
+ * but not every one: Zotero builds its item tree while the plugin is still
+ * waiting on `initializationPromise`, and it rebuilds the cache afterwards. A
+ * row cached empty in that window stays empty until something clears it, which
+ * is the "the column is blank until I press refresh" report. Clearing again a
+ * moment later costs one repaint and removes the whole class of ordering bugs.
+ *
+ * Each timer re-checks that the window is still alive, and they are cancelled on
+ * unload: a timer that fires into a destroyed window throws inside Zotero.
+ */
+export function repaintAfterWindowLoad(win: Window): void {
+  cancelRepaint(win);
+  const ids: number[] = [];
+  repaintTimers.set(win, ids);
+  for (const delay of [1200, 3000, 6000]) {
+    const id = win.setTimeout(() => {
+      try {
+        if ((win as unknown as { closed?: boolean }).closed) return;
+        const itemsView = (win as any).ZoteroPane?.itemsView;
+        if (!itemsView) return;
+        itemsView._rowCache = {};
+        itemsView.tree?.invalidate?.();
+      } catch (_error) {
+        // the window went away mid-flight
+      }
+    }, delay);
+    ids.push(id);
+  }
+}
+
+/** Cancel the pending repaints of a window that is going away. */
+export function cancelRepaint(win: Window): void {
+  const ids = repaintTimers.get(win);
+  if (!ids) return;
+  repaintTimers.delete(win);
+  for (const id of ids) {
+    try {
+      win.clearTimeout(id);
+    } catch (_error) {
+      // ignore
+    }
+  }
+}
