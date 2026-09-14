@@ -1,0 +1,147 @@
+/* Styles for the CCF Rank preference pane. */
+
+.ccfrank-pref-hint {
+  color: color-mix(in srgb, currentColor 65%, transparent);
+  font-size: 0.92em;
+  margin-block-start: 2px;
+}
+
+.ccfrank-pref-preview {
+  font-family: monospace;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin-block: 4px;
+  user-select: text;
+}
+
+.ccfrank-pref-buttons {
+  gap: 6px;
+  margin-block-start: 6px;
+  flex-wrap: wrap;
+}
+
+.ccfrank-pref-alias-list {
+  max-height: 14em;
+  overflow-y: auto;
+  margin-block: 4px;
+}
+
+.ccfrank-alias-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-block-end: 3px;
+}
+
+.ccfrank-alias-row input,
+.ccfrank-alias-row select {
+  padding: 2px 4px;
+}
+
+.ccfrank-alias-remove {
+  min-width: 2em;
+  padding: 2px 4px;
+}
+
+.ccfrank-error {
+  color: #d33;
+}
+
+.ccfrank-pref-about {
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  font-size: 0.9em;
+  margin-block-start: 8px;
+}
+
+/* Native checkbox rows: the box has to look like a checkbox in every theme. */
+.ccfrank-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-block: 3px;
+  cursor: pointer;
+}
+
+.ccfrank-check input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.ccfrank-check span {
+  flex: 1;
+}
+
+/* Progress of the running job. */
+.ccfrank-progress {
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 6px;
+}
+
+.ccfrank-progress[hidden="true"] {
+  display: none;
+}
+
+.ccfrank-progress-track {
+  flex: 1;
+  height: 8px;
+  min-width: 8em;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.ccfrank-progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: var(--accent-blue, #0a84ff);
+  transition: width 0.2s ease-out;
+}
+
+.ccfrank-progress-text {
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, currentColor 70%, transparent);
+  white-space: nowrap;
+}
+
+/* Placeholder reference under the template field. */
+.ccfrank-pref-placeholders {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-block: 2px 6px;
+}
+
+.ccfrank-placeholder-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ccfrank-placeholder-row:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.ccfrank-placeholder-token {
+  font-family: monospace;
+  min-width: 7.5em;
+  color: var(--accent-blue, #0a84ff);
+}
+
+.ccfrank-placeholder-text {
+  flex: 1;
+}
+
+.ccfrank-placeholder-sample {
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  font-family: monospace;
+  white-space: nowrap;
+}

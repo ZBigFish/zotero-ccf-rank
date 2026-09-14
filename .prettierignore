@@ -1,0 +1,19 @@
+.vscode
+build
+build-test
+logs
+node_modules
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+# zotero-cmd.json
+
+# Generated data, one entry per line would be unreadable either way.
+src/data/ccfCatalog.ts
+tools/out
+# Real-world HTML captured from LetPub: the page contains unclosed tags on
+# purpose, which the HTML parser rejects.
+tests/fixtures/*.html
+# The pane controller is a classic script with its own formatting rules.
+src/ui/prefs-pane.js
+addon/chrome/content/prefs-pane.js

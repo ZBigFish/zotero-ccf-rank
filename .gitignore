@@ -1,0 +1,12 @@
+build
+build-test
+.scaffold
+logs
+node_modules
+yarn.lock
+zotero-cmd.json
+.DS_Store
+.env
+
+# Scratch directories created by the manager tests.
+ccfrank*/
